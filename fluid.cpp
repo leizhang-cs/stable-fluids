@@ -42,11 +42,18 @@ void Fluid<T,n>::Vstep(vec& F, T S, vec& X){
 template<class T, int n>
 void Fluid<T,n>::AddForce(vec F, T S, vec X){
     // U1 = U0 + F*dt
-    // TODO: volume. du: delta velocity
+    // initialize
+    for(int i=0; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            U1[Idx(i,j)].make_zero();
+            S1[Idx(i,j)] = 0;
+        }
+    }
+
     vec du = F*dt/(density*L[0]*L[1]/4);
     T ds = S/(N[0]*N[1]/4);
 
-    int index = XtoIdx(X);
+    //int index = XtoIdx(X);
     // w1 = f(w0)
     for(int i=N[0]/4; i<3*N[0]/4; i++){
         for(int j=0; j<N[1]/4; j++){
@@ -55,8 +62,8 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
         }
     }
     
-    std::cout<<"init velocity: "<<U0[index]+U1[index]<<std::endl;
-    std::cout<<"init source: "<<S0[index]+S1[index]<<std::endl;
+    std::cout<<"delta velocity: "<<du<<std::endl;
+    std::cout<<"delta source: "<<ds<<std::endl;
 }
 
 template<class T, int n>
@@ -65,6 +72,7 @@ void Fluid<T,n>::Advect(){
     // TraceParticle: method of charactristic
     std::vector<vec> Ut(N[0]*N[1]);
 
+    T max_val = 0;
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             vec X1, X0;
@@ -75,6 +83,7 @@ void Fluid<T,n>::Advect(){
             // w2 = f(w1)
             U1[Idx(i,j)] += U0[XtoIdx(X0)];
             S1[Idx(i,j)] += S0[XtoIdx(X0)];
+            max_val = std::max(max_val, S1[Idx(i,j)]);
         }
     }
 
@@ -85,7 +94,7 @@ void Fluid<T,n>::Advect(){
         }
     }*/
     std::cout<<"U After Adv: "<<U1[Idx(N[0]/2,N[1]/2)]<<std::endl;
-    std::cout<<"S After Adv: "<<S1[Idx(N[0]/2,N[1]/2)]<<std::endl;
+    std::cout<<"S After Adv: "<<max_val<<std::endl;
 }
 
 template<class T, int n>
@@ -102,15 +111,17 @@ void Fluid<T,n>::Diffuse(){
     fftw_complex* uyf = new fftw_complex[num]();
     fftw_complex* sf = new fftw_complex[num]();
 
+    T max_val = 0;
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             ux[Idx(i,j)][0] = U1[Idx(i,j)][0];
             uy[Idx(i,j)][0] = U1[Idx(i,j)][1];
             s[Idx(i,j)][0] = S1[Idx(i,j)];
+            max_val = std::max(max_val, S1[Idx(i,j)]);
         }
     }
     std::cout<<"U before Diff: "<<U1[Idx(N[0]/2,N[1]/2)]<<std::endl;
-    std::cout<<"S before Diff: "<<S1[Idx(N[0]/2,N[1]/2)]<<std::endl;
+    std::cout<<"S before Diff: "<<max_val<<std::endl;
     fftw_plan pf_x = fftw_plan_dft_1d(N[0]*N[1], ux, uxf, FFTW_FORWARD, FFTW_ESTIMATE);
     fftw_plan pf_y = fftw_plan_dft_1d(N[0]*N[1], uy, uyf, FFTW_FORWARD, FFTW_ESTIMATE);
     fftw_plan pf_s = fftw_plan_dft_1d(N[0]*N[1], s, sf, FFTW_FORWARD, FFTW_ESTIMATE);
@@ -145,15 +156,19 @@ void Fluid<T,n>::Diffuse(){
     fftw_execute(pb_y);
     fftw_execute(pb_s);
 
+    max_val = 0;
+    T max_U = 0;
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             U1[Idx(i,j)][0] = ux[Idx(i,j)][0]/num;
             U1[Idx(i,j)][1] = uy[Idx(i,j)][0]/num;
             S1[Idx(i,j)] = s[Idx(i,j)][0]/num;
+            max_val = std::max(max_val, S1[Idx(i,j)]);
+            max_U = std::max(max_U, U1[Idx(i,j)][0]);
         }
     }    
-    std::cout<<"U after Diff: "<<U1[Idx(N[0]/2,N[1]/2)]<<std::endl;
-    std::cout<<"S after Diff: "<<S1[Idx(N[0]/2,N[1]/2)]<<std::endl;
+    std::cout<<"U after Diff: "<<max_U<<std::endl;
+    std::cout<<"S after Diff: "<<max_val<<std::endl;
 
     fftw_destroy_plan(pf_x);
     fftw_destroy_plan(pf_y);
@@ -185,11 +200,6 @@ void Fluid<T,n>::Diffuse(){
 template<class T, int n>
 void Fluid<T,n>::Project(){
     // U1, U0, dt
-    T max_v = 0;
-    for(int i=0; i<N[0]; i++)
-        for(int j=0; j<N[1]; j++)
-            max_v = std::max(max_v, U1[Idx(i,j)][0]);
-    std::cout<<"U before P:"<<max_v<<std::endl;
 
     T dx2 = D[0]*D[0], dy2 = D[1]*D[1], d2 = dx2*dy2;
     
@@ -219,11 +229,12 @@ void Fluid<T,n>::Project(){
     }
 
     // w4 = w3 - divP
+    T max_U = 0;
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             vec gradP(0.5*(P[Idx(i+1,j)]-P[Idx(i-1,j)])/D[0], 0.5*(P[Idx(i,j+1)]-P[Idx(i,j-1)])/D[1]);
             U1[Idx(i,j)] -= gradP;
-            
+            max_U = std::max(max_U, U1[Idx(i,j)][0]);
         }
     }
     if(!pbc) boundry_condition(U1);
@@ -237,6 +248,7 @@ void Fluid<T,n>::Project(){
             max_val = std::max(max_val, S1[Idx(i,j)]);
         }
     }
+    std::cout<<"U after P:"<<max_U<<std::endl;
     std::cout<<"S after P:"<<max_val<<std::endl;
 }
 
