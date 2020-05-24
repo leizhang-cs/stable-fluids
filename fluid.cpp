@@ -25,7 +25,7 @@ void Fluid<T,n>::AddSource(const char* filename){
         for(int j=0; j<N[1]; j++){
             int r, g, b;
             from_pixel(image_color[Idx(i,j)],r,g,b);
-            S0[Idx(i,j)] = (r+g+b)/3;
+            S0[Idx(i,j)] = (r+g+b)/3 * 0.5;
         }
     }
 }
@@ -67,22 +67,30 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
     //int index = XtoIdx(X);
 
     // w1 = f(w0)
-    vec du = F*dt/(density*L[0]*L[1]);
-    for(int i=0; i<N[0]; i++){
+    vec du_top = F*dt/(density*L[0]*L[1]);
+    for(int i=0; i<N[0]/2; i++){
         for(int j=0; j<N[1]; j++){
-            U1[Idx(i,j)] = du;
+            U1[Idx(i,j)] = du_top;
+        }
+    }
+    
+    F[0] = -F[0];
+    vec du_btm = F*dt/(density*L[0]*L[1]);
+    for(int i=N[0]/2; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            U1[Idx(i,j)] = du_btm;
         }
     }
     
     // add source
-    T ds = S/(N[0]*N[1])*8;
-    for(int i=N[0]/4; i<3*N[0]/4; i++){
+    T ds = S/(N[0]*N[1])*16;
+    for(int i=3*N[0]/8; i<5*N[0]/8; i++){
         for(int j=0; j<N[1]/4; j++){
             S1[Idx(i,j)] = ds;
         }
     }
     
-    std::cout<<"delta velocity: "<<du<<std::endl;
+    //std::cout<<"du top: "<<du_top<<", btm: "<<du_btm<<std::endl;
     std::cout<<"delta source: "<<ds<<std::endl;
 }
 
@@ -96,9 +104,11 @@ void Fluid<T,n>::Advect(){
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             vec X1, X0;
-            vec index1(i, j);
-            X1 = O + index1*D;
+            vec index(i, j);
+            X1 = O + index*D;
             TraceParticle(X1, X0);
+            if(i==N[0]/4 && j==N[1]/4) std::cout<<U0[XtoIdx(X0)]<<std::endl;
+            if(i==3*N[0]/4 && j==N[1]/4) std::cout<<U0[XtoIdx(X0)]<<std::endl;
             // interpolate
             // w2 = f(w1)
             U1[Idx(i,j)] += U0[XtoIdx(X0)];
@@ -286,6 +296,12 @@ Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X)
     return U[XtoIdx(X)];
 }
 
+template<class T, int n>
+int Fluid<T,n>::XtoIdx(vec& X){
+    int i = static_cast<int>((X[0]+L[0])*N[0]/L[0]),
+        j = static_cast<int>((X[1]+L[1])*N[1]/L[1]);
+    return Idx(i,j);
+}
 
 template<class T, int n>
 inline int Fluid<T,n>::Idx(int i, int j){
@@ -294,13 +310,6 @@ inline int Fluid<T,n>::Idx(int i, int j){
     return i*N[1] + j;
 }
 
-
-template<class T, int n>
-int Fluid<T,n>::XtoIdx(vec& X){
-    int i = static_cast<int>((X[0]+L[0])*N[0]/L[0]),
-        j = static_cast<int>((X[1]+L[1])*N[1]/L[1]);
-    return Idx(i,j);
-}
 
 template<class T, int n>
 void Fluid<T,n>::boundry_condition(std::vector<T>& var){
