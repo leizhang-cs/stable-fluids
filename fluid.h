@@ -33,6 +33,8 @@ public:
 
     pixel* image_color;
     void simulate(vec& F, T Source, vec& X);
+    // image as source
+    void AddSource(const char* filename);
     void display();
 private:
     T visc;

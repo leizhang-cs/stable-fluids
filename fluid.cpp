@@ -17,6 +17,20 @@ void Fluid<T,n>::simulate(vec& F, T Source, vec& X){
 }
 
 template<class T, int n>
+void Fluid<T,n>::AddSource(const char* filename){
+    //TODO readpng modify out
+    Read_png(image_color,N[0],N[1],filename);
+
+    for(int i=0; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            int r, g, b;
+            from_pixel(image_color[Idx(i,j)],r,g,b);
+            S0[Idx(i,j)] = (r+g+b)/3;
+        }
+    }
+}
+
+template<class T, int n>
 void Fluid<T,n>::display()
 {
     std::cout<<"display"<<std::endl;
@@ -50,14 +64,20 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
         }
     }
 
-    vec du = F*dt/(density*L[0]*L[1]/4);
-    T ds = S/(N[0]*N[1]/4);
-
     //int index = XtoIdx(X);
+
     // w1 = f(w0)
+    vec du = F*dt/(density*L[0]*L[1]);
+    for(int i=0; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            U1[Idx(i,j)] = du;
+        }
+    }
+    
+    // add source
+    T ds = S/(N[0]*N[1])*8;
     for(int i=N[0]/4; i<3*N[0]/4; i++){
         for(int j=0; j<N[1]/4; j++){
-            U1[Idx(i,j)] = du;
             S1[Idx(i,j)] = ds;
         }
     }
@@ -263,13 +283,12 @@ template<class T, int n>
 Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X)
 {
     // X U
-    int i = std::min(static_cast<int>(X[0]*L[0]/D[0]), N[0]-1), 
-        j = std::min(static_cast<int>(X[1]*L[1]/D[1]), N[1]-1);
-    return U[Idx(i,j)];
+    return U[XtoIdx(X)];
 }
 
+
 template<class T, int n>
-int Fluid<T,n>::Idx(int i, int j){
+inline int Fluid<T,n>::Idx(int i, int j){
     i = (i+N[0])%N[0];
     j = (j+N[1])%N[1];
     return i*N[1] + j;
@@ -278,8 +297,8 @@ int Fluid<T,n>::Idx(int i, int j){
 
 template<class T, int n>
 int Fluid<T,n>::XtoIdx(vec& X){
-    int i = std::min(static_cast<int>(X[0]*N[0]/L[0]), N[0]-1),
-        j = std::min(static_cast<int>(X[1]*N[1]/L[1]), N[1]-1);
+    int i = static_cast<int>((X[0]+L[0])*N[0]/L[0]),
+        j = static_cast<int>((X[1]+L[1])*N[1]/L[1]);
     return Idx(i,j);
 }
 

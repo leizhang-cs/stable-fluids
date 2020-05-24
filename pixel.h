@@ -10,6 +10,14 @@ pixel make_pixel(int r, int g, int b)
     return (r<<24)|(g<<16)|(b<<8)|0xff;
 }
 
+inline 
+void from_pixel(pixel p, int& r, int& g, int& b)
+{
+    r = (p>>24)&0xff;
+    g = (p>>16)&0xff;
+    b = (p>>8)&0xff;
+}
+
 // Dump an image to file.
 void dump_png(pixel* data,int width,int height,const char* filename)
 {
@@ -32,5 +40,77 @@ void dump_png(pixel* data,int width,int height,const char* filename)
     png_write_png(png_ptr,info_ptr,PNG_TRANSFORM_BGR|PNG_TRANSFORM_SWAP_ALPHA,0);
     delete[] row_pointers;
     png_destroy_write_struct(&png_ptr,&info_ptr);
+    fclose(file);
+}
+
+void Read_png(pixel* data,int width,int height,const char* filename)
+{
+    FILE *file = fopen(filename, "rb");
+    assert(file);
+
+    unsigned char header[8];
+    int num_read=fread(&header, 1, sizeof header, file);
+    assert(num_read==sizeof header);
+    int ret_sig=png_sig_cmp((png_bytep)header, 0, sizeof header);
+    assert(!ret_sig);
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
+    assert(png_ptr);
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    assert(info_ptr);
+    png_infop end_info = png_create_info_struct(png_ptr);
+    assert(end_info);
+    png_init_io(png_ptr, file);
+    png_set_sig_bytes(png_ptr, sizeof header);
+    png_read_info(png_ptr, info_ptr);
+    int color_type = png_get_color_type(png_ptr, info_ptr);
+    int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+
+    if(color_type == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(png_ptr);
+
+    if(color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+        png_set_expand_gray_1_2_4_to_8(png_ptr);
+
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png_ptr);
+
+    if(bit_depth == 16)
+        png_set_strip_16(png_ptr);
+
+    if(bit_depth < 8)
+        png_set_packing(png_ptr);
+    
+    if(color_type == PNG_COLOR_TYPE_GRAY_ALPHA || color_type == PNG_COLOR_TYPE_RGB_ALPHA)
+        png_set_swap_alpha(png_ptr);
+
+    if(color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(png_ptr);
+
+    if(color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_RGB_ALPHA)
+        png_set_bgr(png_ptr);
+
+    if(color_type == PNG_COLOR_TYPE_RGB)
+        png_set_filler(png_ptr, 0xff, PNG_FILLER_AFTER);
+
+    int height_input = png_get_image_height(png_ptr, info_ptr);
+
+    int width_input = png_get_image_width(png_ptr, info_ptr);
+    //std::cout<<"h*w: "<<h<<" "<<w<<std::endl;
+
+    pixel* data_input = new pixel[width_input * height_input];
+    
+    png_read_update_info(png_ptr, info_ptr);
+
+    for(int i = 0; i < height_input; i++)
+        png_read_row(png_ptr, (png_bytep)(data_input + (height_input-i-1) * width_input), 0);
+
+    for(int i=0, w=std::min(width_input,width); i<std::min(height_input,height); i++){
+        for(int j=0; j<w; j++){
+            data[i*w+j] = data_input[i*w+j];
+        }
+    }
+
+    delete [] data_input;
+    png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
     fclose(file);
 }
