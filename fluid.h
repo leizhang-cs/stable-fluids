@@ -13,11 +13,11 @@ class Fluid{
 public:
     Fluid(){}
     Fluid(T visc_input, T kS_input, T aS_input, T dt_input, T density_input,
-        vec& L_input, vec& N_input):
+        vec& L_input, ivec& N_input):
         visc(visc_input), kS(kS_input), aS(aS_input), dt(dt_input), density(density_input),
         L(L_input), N(N_input), size(N_input),
-        U0(N_input[0]*N_input[1]), U1(N_input[0]*N_input[1]),
-        S0(N_input[0]*N_input[1]), S1(N_input[0]*N_input[1]),
+        U0(N_input[0]*N_input[1]), U1(N_input[0]*N_input[1]), Ut(N_input[0]*N_input[1]),
+        S0(N_input[0]*N_input[1]), S1(N_input[0]*N_input[1]), St(N_input[0]*N_input[1]),
         P(N_input[0]*N_input[1]), div(N_input[0]*N_input[1])
     {
         image_color = new pixel [size[0]*size[1]]();
@@ -41,17 +41,18 @@ private:
     T dt;
     T density;
     // grids row*col: N[0]*N[1]
-    vec L, N, D, O; // D[i] = L[i]/N[i]
+    vec L, D, O; // D[i] = L[i]/N[i]
+    ivec N;
     ivec size;
-    std::vector<vec> U0, U1;
-    std::vector<T> S0, S1;
+    std::vector<vec> U0, U1, Ut;
+    std::vector<T> S0, S1, St;
     std::vector<T> P; // pressure
     std::vector<T> div; // divergence of velocity
 
     bool pbc = true; // periodic boundry
 
-    void Vstep(vec& F, vec& X);
-    void AddForce(vec Force, vec X);
+    void Vstep(vec& F, T Source, vec& X);
+    void AddForce(vec Force, T Source, vec X);
     void Advect();
     void Diffuse();
     void Project();
