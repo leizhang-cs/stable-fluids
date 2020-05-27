@@ -1,0 +1,8 @@
+# ignore .o db files
+*.o
+*.dblite
+
+# Executables
+*.exe
+*.out
+*.app

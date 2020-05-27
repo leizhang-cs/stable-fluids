@@ -11,7 +11,7 @@ int main(){
     cout<<"O"<<endl;
     for(int i=0; i<N; i++){
         in[i][0] = rand()/(RAND_MAX+1.0);
-        in[i][1] = rand()/(RAND_MAX+1.0);
+        //in[i][1] = rand()/(RAND_MAX+1.0);
     }
     for(int i=0; i<N; i++){
         cout<<in[i][0]<<" ";

@@ -40,7 +40,7 @@ int main(){
         }
         if(!simulating) break;
         
-        if(i==0) fluid.AddSource("bunny128.png");
+        if(false) fluid.AddSource("bunny128.png");
         else if(true) fluid.simulate(Force, Source, X);
         else fluid.simulate(F0, Source0, X);
         

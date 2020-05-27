@@ -6,7 +6,7 @@
 template class Fluid<double,2>;
 using pixel = unsigned int;
 
-static double small_t = 1e-4;
+static const double small_t = 1e-4;
 
 template<class T, int n>
 void Fluid<T,n>::simulate(vec& F, T Source, vec& X){
@@ -167,15 +167,28 @@ void Fluid<T,n>::Diffuse(){
     T k_2 = k.magnitude_squared();
     T c = 1.0 + visc*dt*k_2;
     T cs = 1.0 + kS*dt*k_2;
+    std::vector<vec> ux_P(num), uy_P(num);
     //std::cout<<"coeff:"<<c<<std::endl;
+
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
-            uxf[Idx(i,j)][0] /= c;
-            uxf[Idx(i,j)][1] /= c;
-            uyf[Idx(i,j)][0] /= c;
-            uyf[Idx(i,j)][1] /= c;
+            ux_P[Idx(i,j)][0] = uxf[Idx(i,j)][0] /= c;
+            ux_P[Idx(i,j)][1] = uxf[Idx(i,j)][1] /= c;
+            uy_P[Idx(i,j)][0] = uyf[Idx(i,j)][0] /= c;
+            uy_P[Idx(i,j)][1] = uyf[Idx(i,j)][1] /= c;
             sf[0][Idx(i,j)] /= cs;
             sf[1][Idx(i,j)] /= cs;
+        }
+    }
+
+    // Projection by FFT
+    for(int i=0; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            vec v;
+            v = (k[0]*k[0]*ux_P[Idx(i,j)] + k[0]*k[1]*(ux_P[Idx(i,j)]+uy_P[Idx(i,j)]) +
+                k[1]*k[1]*uy_P[Idx(i,j)]) / k_2;
+            uxf[Idx(i,j)][0] -= v[0]; uxf[Idx(i,j)][1] -= v[1];
+            uyf[Idx(i,j)][0] -= v[0]; uyf[Idx(i,j)][1] -= v[1];
         }
     }
 
@@ -230,7 +243,7 @@ void Fluid<T,n>::Diffuse(){
 template<class T, int n>
 void Fluid<T,n>::Project(){
     // U1, U0, dt
-
+    /*
     T dx2 = D[0]*D[0], dy2 = D[1]*D[1], d2 = dx2*dy2;
     
     // divU
@@ -268,6 +281,8 @@ void Fluid<T,n>::Project(){
         }
     }
     if(!pbc) boundry_condition(U1);
+    std::cout<<"U after P:"<<max_U<<std::endl;
+    */
 
     // source: disspation term
     T max_val = 0;
@@ -278,7 +293,7 @@ void Fluid<T,n>::Project(){
             max_val = std::max(max_val, S1[Idx(i,j)]);
         }
     }
-    std::cout<<"U after P:"<<max_U<<std::endl;
+    
     std::cout<<"S after P:"<<max_val<<std::endl;
 }
 
