@@ -16,18 +16,14 @@ void Fluid<T,n>::simulate(vec& F, T Source, vec& X){
     std::swap(S0, S1);
 }
 
-template<class T, int n>
-void Fluid<T,n>::AddSource(const char* filename){
-    //TODO readpng modify out
-    Read_png(image_color,N[0],N[1],filename);
 
-    for(int i=0; i<N[0]; i++){
-        for(int j=0; j<N[1]; j++){
-            int r, g, b;
-            from_pixel(image_color[Idx(i,j)],r,g,b);
-            S0[Idx(i,j)] = (r+g+b)/3 * 0.5;
-        }
-    }
+template<class T, int n>
+void Fluid<T,n>::Vstep(vec& F, T S, vec& X){
+    // U0, U1, visc, F, dt
+    AddForce(F, S, X);
+    Advect();
+    Diffuse();
+    Project();
 }
 
 template<class T, int n>
@@ -45,13 +41,19 @@ void Fluid<T,n>::display()
 }
 
 template<class T, int n>
-void Fluid<T,n>::Vstep(vec& F, T S, vec& X){
-    // U0, U1, visc, F, dt
-    AddForce(F, S, X);
-    Advect();
-    Diffuse();
-    Project();
+void Fluid<T,n>::AddSource(const char* filename){
+    //TODO readpng modify out
+    Read_png(image_color,N[0],N[1],filename);
+
+    for(int i=0; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            int r, g, b;
+            from_pixel(image_color[Idx(i,j)],r,g,b);
+            S0[Idx(i,j)] = (r+g+b)/3 * 0.5;
+        }
+    }
 }
+
 
 template<class T, int n>
 void Fluid<T,n>::AddForce(vec F, T S, vec X){
@@ -90,7 +92,7 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
         }
     }
     
-    //std::cout<<"du top: "<<du_top<<", btm: "<<du_btm<<std::endl;
+    std::cout<<"du top: "<<du_top<<", btm: "<<du_btm<<std::endl;
     std::cout<<"delta source: "<<ds<<std::endl;
 }
 
@@ -107,9 +109,7 @@ void Fluid<T,n>::Advect(){
             vec index(i, j);
             X1 = O + index*D;
             TraceParticle(X1, X0);
-            if(i==N[0]/4 && j==N[1]/4) std::cout<<U0[XtoIdx(X0)]<<std::endl;
-            if(i==3*N[0]/4 && j==N[1]/4) std::cout<<U0[XtoIdx(X0)]<<std::endl;
-            // interpolate
+            
             // w2 = f(w1)
             U1[Idx(i,j)] += U0[XtoIdx(X0)];
             S1[Idx(i,j)] += S0[XtoIdx(X0)];
@@ -123,8 +123,8 @@ void Fluid<T,n>::Advect(){
             S1[Idx(i,j)] = St[Idx(i,j)];
         }
     }*/
-    std::cout<<"U After Adv: "<<U1[Idx(N[0]/2,N[1]/2)]<<std::endl;
-    std::cout<<"S After Adv: "<<max_val<<std::endl;
+    //std::cout<<"U After Adv, top:"<<U1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<U1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
+    //std::cout<<"S After Adv: "<<max_val<<std::endl;
 }
 
 template<class T, int n>
@@ -150,8 +150,8 @@ void Fluid<T,n>::Diffuse(){
             max_val = std::max(max_val, S1[Idx(i,j)]);
         }
     }
-    std::cout<<"U before Diff: "<<U1[Idx(N[0]/2,N[1]/2)]<<std::endl;
-    std::cout<<"S before Diff: "<<max_val<<std::endl;
+    std::cout<<"U before Diff, top:"<<U1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<U1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
+    //std::cout<<"S before Diff: "<<max_val<<std::endl;
     fftw_plan pf_x = fftw_plan_dft_1d(N[0]*N[1], ux, uxf, FFTW_FORWARD, FFTW_ESTIMATE);
     fftw_plan pf_y = fftw_plan_dft_1d(N[0]*N[1], uy, uyf, FFTW_FORWARD, FFTW_ESTIMATE);
     fftw_plan pf_s = fftw_plan_dft_1d(N[0]*N[1], s, sf, FFTW_FORWARD, FFTW_ESTIMATE);
@@ -180,7 +180,7 @@ void Fluid<T,n>::Diffuse(){
             sf[1][Idx(i,j)] /= cs;
         }
     }
-
+    /*
     // Projection by FFT
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
@@ -191,6 +191,7 @@ void Fluid<T,n>::Diffuse(){
             uyf[Idx(i,j)][0] -= v[0]; uyf[Idx(i,j)][1] -= v[1];
         }
     }
+    */
 
     fftw_plan pb_x = fftw_plan_dft_1d(N[0]*N[1], uxf, ux, FFTW_BACKWARD, FFTW_ESTIMATE);
     fftw_plan pb_y = fftw_plan_dft_1d(N[0]*N[1], uyf, uy, FFTW_BACKWARD, FFTW_ESTIMATE);
@@ -210,8 +211,8 @@ void Fluid<T,n>::Diffuse(){
             max_U = std::max(max_U, U1[Idx(i,j)][0]);
         }
     }    
-    std::cout<<"U after Diff: "<<max_U<<std::endl;
-    std::cout<<"S after Diff: "<<max_val<<std::endl;
+    std::cout<<"U After Diff, top:"<<U1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<U1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
+    //std::cout<<"S after Diff: "<<max_val<<std::endl;
 
     fftw_destroy_plan(pf_x);
     fftw_destroy_plan(pf_y);
@@ -298,30 +299,27 @@ void Fluid<T,n>::Project(){
 }
 
 template<class T, int n>
-void Fluid<T,n>::TraceParticle(vec& X1, vec& X0)
+inline void Fluid<T,n>::TraceParticle(vec& X1, vec& X0)
 {
-    // TODO RK
-    X0 = X1 - dt*U0[XtoIdx(X1)];
+    vec k1 = U0[XtoIdx(X1)];
+    vec X_t = X1 - dt*k1;
+    // TODO: t-dt??
+    vec k2 = U0[XtoIdx(X_t)];
+    X0 = X1 - (k1+k2)/2*dt;
 }
 
-template<class T, int n>
-Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X)
-{
-    // X U
-    return U[XtoIdx(X)];
-}
 
 template<class T, int n>
-int Fluid<T,n>::XtoIdx(vec& X){
-    int i = static_cast<int>((X[0]+L[0])*N[0]/L[0]),
-        j = static_cast<int>((X[1]+L[1])*N[1]/L[1]);
+inline int Fluid<T,n>::XtoIdx(vec& X){
+    int i = (X[0]+L[0])*N[0]/L[0] + 0.5,
+        j = (X[1]+L[1])*N[1]/L[1] + 0.5;
     return Idx(i,j);
 }
 
 template<class T, int n>
 inline int Fluid<T,n>::Idx(int i, int j){
-    i = (i+N[0])%N[0];
-    j = (j+N[1])%N[1];
+    i = (i+N[0]) % N[0];
+    j = (j+N[1]) % N[1];
     return i*N[1] + j;
 }
 

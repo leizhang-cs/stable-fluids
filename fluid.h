@@ -24,6 +24,12 @@ public:
         for(int i=0; i<n; i++){
             D[i] = L[i]/size[i];
         }
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                U0[Idx(i,j)][0] = 0;
+                U0[Idx(i,j)][1] = 0;
+            }
+        }
     }
 
     ~Fluid()
