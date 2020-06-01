@@ -15,14 +15,14 @@ public:
     Fluid(T visc_input, T kS_input, T aS_input, T dt_input, T density_input,
         vec& L_input, ivec& N_input):
         visc(visc_input), kS(kS_input), aS(aS_input), dt(dt_input), density(density_input),
-        L(L_input), N(N_input), size(N_input),
+        L(L_input), N(N_input),
         U0(N_input[0]*N_input[1]), U1(N_input[0]*N_input[1]),
         S0(N_input[0]*N_input[1]), S1(N_input[0]*N_input[1]),
         P(N_input[0]*N_input[1]), div(N_input[0]*N_input[1])
     {
-        image_color = new pixel [size[0]*size[1]]();
+        image_color = new pixel [N[0]*N[1]]();
         for(int i=0; i<n; i++){
-            D[i] = L[i]/size[i];
+            D[i] = L[i]/N[i];
         }
         for(int i=0; i<N[0]; i++){
             for(int j=0; j<N[1]; j++){
@@ -64,13 +64,14 @@ private:
     void Advect();
     void Diffuse();
     void Project();
-    void TraceParticle(vec& X1, vec& X0);
+    void TraceParticle(const vec& X1, vec& X0);
     vec Interpolate(std::vector<vec>& U, vec& X);
+    T Interpolate(std::vector<T>& S, vec& X);
     // util
     void boundry_condition(std::vector<T>& var);
     void boundry_condition(std::vector<vec>& var);
     int Idx(int i, int j);
-    int XtoIdx(vec& X);
+    int XtoIdx(const vec& X);
 };
 
 #endif
