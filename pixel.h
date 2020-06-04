@@ -35,7 +35,7 @@ void dump_png(pixel* data,int width,int height,const char* filename)
     png_set_IHDR(png_ptr,info_ptr,width,height,8,color_type,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_DEFAULT,PNG_FILTER_TYPE_DEFAULT);
 
     pixel** row_pointers=new pixel*[height];
-    for(int j=0;j<height;j++) row_pointers[j]=data+width*(height-j-1);
+    for(int j=0;j<height;j++) row_pointers[height-1-j]=data+width*(height-j-1);
     png_set_rows(png_ptr,info_ptr,(png_byte**)row_pointers);
     png_write_png(png_ptr,info_ptr,PNG_TRANSFORM_BGR|PNG_TRANSFORM_SWAP_ALPHA,0);
     delete[] row_pointers;
@@ -102,7 +102,7 @@ void Read_png(pixel* data,int width,int height,const char* filename)
     png_read_update_info(png_ptr, info_ptr);
 
     for(int i = 0; i < height_input; i++)
-        png_read_row(png_ptr, (png_bytep)(data_input + (height_input-i-1) * width_input), 0);
+        png_read_row(png_ptr, (png_bytep)(data_input + (i) * width_input), 0);
 
     for(int i=0, w=std::min(width_input,width); i<std::min(height_input,height); i++){
         for(int j=0; j<w; j++){

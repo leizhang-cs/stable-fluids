@@ -26,7 +26,7 @@ public:
         }
         for(int i=0; i<N[0]; i++){
             for(int j=0; j<N[1]; j++){
-                U0[Idx(i,j)][0] = 0;
+                U0[Idx(i,j)][0] = 3;
                 U0[Idx(i,j)][1] = 0;
             }
         }
@@ -58,6 +58,8 @@ private:
     std::vector<T> div; // divergence of velocity
 
     bool pbc = true; // periodic boundry
+    bool obstacle = false; // obstacle area
+    bool debug_flag = false;
 
     void Vstep(vec& F, T Source, vec& X);
     void AddForce(vec Force, T Source, vec X);
@@ -67,11 +69,15 @@ private:
     void TraceParticle(const vec& X1, vec& X0);
     vec Interpolate(std::vector<vec>& U, vec& X);
     T Interpolate(std::vector<T>& S, vec& X);
+    void Interpolate(const std::vector<vec>& U, vec& ret_U, const std::vector<T>& S,
+        T& ret_S, vec& X, int flag);
     // util
     void boundry_condition(std::vector<T>& var);
     void boundry_condition(std::vector<vec>& var);
     int Idx(int i, int j);
     int XtoIdx(const vec& X);
+    T IdxtoX(const int i, const int dim); // i,j to y,x
+    void Check_Symmetry(std::vector<vec>& U, std::vector<T>& S, const std::string& s);
 };
 
 #endif
