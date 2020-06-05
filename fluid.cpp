@@ -121,160 +121,6 @@ void Fluid<T,n>::Advect(){
     //std::cout<<"Sssssssss:"<<S1[Idx(100,64)]<<"\n";
 }
 
-// RK2
-template<class T, int n>
-inline void Fluid<T,n>::TraceParticle(vec& X1, vec& X0)
-{
-    vec k1(Interpolate(U0,X1));
-    vec Xt = X1 - dt*k1;
-    
-    vec k2(Interpolate(U0,Xt));
-    X0 = X1 - (k1+k2)/2*dt;
-}
-
-
-template<class T, int n>
-inline Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X){
-    // portion along axis
-    T x = N[1]/2+X[0]/L[1]*N[1], y = N[0]/2-X[1]/L[0]*N[0];
-    
-    int i0 = y<N[0]/2? floor(y): floor(y)-1, i1 = i0 + 1,
-        j0 = x<N[1]/2? floor(x): floor(x)-1, j1 = j0 + 1;
-
-    //if(debug_flag) std::cout<<"interp: "<<"  "<<j0<<" ";
-    //    x = (x-0.5-j0), y = (y-0.5-i0);
-    x = std::min(std::max((x-0.5-j0),0.0), 1.0);
-    y = std::min(std::max((y-0.5-i0),0.0), 1.0);
-    
-    vec ut = (1-x)*U[Idx(i0,j0)] + x*U[Idx(i0,j1)],
-        ub = (1-x)*U[Idx(i1,j0)] + x*U[Idx(i1,j1)];
-    vec ret((1-y)*ut + y*ub);
-    //std::cout<<"ret:"<<ret<<"\n";
-    return ret;
-}
-
-
-template<class T, int n>
-inline T Fluid<T,n>::Interpolate(std::vector<T>& S, vec& X){
-    // portion along axis
-    T x = N[1]/2+X[0]/L[1]*N[1], y = N[0]/2-X[1]/L[0]*N[0];
-    
-    int i0 = y<N[0]/2? floor(y): floor(y)-1, i1 = i0 + 1,
-        j0 = x<N[1]/2? floor(x): floor(x)-1, j1 = j0 + 1;
-
-    x = std::min(std::max((x-0.5-j0),0.0), 1.0);
-    y = std::min(std::max((y-0.5-i0),0.0), 1.0);
-
-    T st = (1-x)*S[Idx(i0,j0)] + x*S[Idx(i0,j1)],
-        sb = (1-x)*S[Idx(i1,j0)] + x*S[Idx(i1,j1)];
-
-    T ret_S = (1-y)*st + y*sb;
-    if(ret_S<-1e-2){ std::cout<<ret_S<<", x:"<<x<<" y:"<<y<<"\n"; }
-
-    return ret_S;
-}
-
-template<class T, int n>
-inline int Fluid<T,n>::XtoIdx(const vec& X){
-    int j = N[1]/2+X[0]/L[1]*N[1], i = N[0]/2-X[1]/L[0]*N[0];
-    //if(debug_flag) std::cout<<"i,j:"<<i<<" "<<j<<"\n";
-    return Idx(i,j);
-}
-
-template<class T, int n>
-inline int Fluid<T,n>::Idx(int i, int j){
-    i = (i+N[0]) % N[0];
-    j = (j+N[1]) % N[1];
-    return i*N[1] + j;
-}
-
-template<class T, int n>
-void Fluid<T,n>::display()
-{
-    std::cout<<"display"<<std::endl;
-    for(int i=0; i<N[0]; i++){
-        for(int j=0; j<N[1]; j++){
-            //if(S0[Idx(i,j)]<0){ std::cout<<"<0"<<"\n"; }
-            int val = std::min(S0[Idx(i,j)], (T)255);
-            image_color[Idx(i,j)] = make_pixel(val, val, val);
-        }
-    }
-    // obstacle
-    if(obstacle){
-        for(int i=0; i<N[0]; i++)
-            for(int j=0; j<N[1]; j++)
-                if((i-64)*(i-64)+(j-64)*(j-64)<81)
-                    image_color[Idx(i,j)] = make_pixel(200, 133, 20);
-    }
-    dump_png(image_color,N[0],N[1],"output.png");
-}
-
-template<class T, int n>
-void Fluid<T,n>::AddSource(const char* filename){
-    //TODO readpng modify out
-    Read_png(image_color,N[0],N[1],filename);
-
-    for(int i=0; i<N[0]; i++){
-        for(int j=0; j<N[1]; j++){
-            int r, g, b;
-            from_pixel(image_color[Idx(i,j)],r,g,b);
-            S0[Idx(i,j)] += (r+g+b)/3 * 0.5;
-        }
-    }
-}
-
-
-template<class T, int n>
-void Fluid<T,n>::Check_Symmetry(std::vector<vec>& U, std::vector<T>& S, 
-    const std::string& s){
-    if(!U.empty()){
-        for(int i=0; i<N[0]; i++){
-            for(int j=0; j<N[1]; j++){
-                if(U[Idx(i,j)][0]!=U[Idx(N[0]-1-i,j)][0 || 
-                    U[Idx(i,j)][1]!=U[Idx(N[0]-1-i,j)][1]]){
-                    std::cout<<"U h:"<<s<<std::endl; break;
-                }
-                if(U[Idx(i,j)][0]!=U[Idx(i,N[1]-1-j)][0] || 
-                    U[Idx(i,j)][1]!=U[Idx(i,N[1]-1-j)][1]){
-                    std::cout<<"U v:"<<s<<std::endl; break;
-                }
-            }
-        }
-    }
-    if(!S.empty()){
-        for(int i=0; i<N[0]; i++){
-            for(int j=0; j<N[1]; j++){
-                if(S[Idx(i,j)]!=S[Idx(N[0]-1-i,j)]){
-                    std::cout<<"S h:"<<s<<" row:"<<i<<std::endl; break;
-                }
-                if(S[Idx(i,j)]!=S[Idx(i,N[1]-1-j)]){
-                    std::cout<<"S v:"<<s<<std::endl; break;
-                }
-            }
-        }
-    }
-}
-
-template<class T, int n>
-void Fluid<T,n>::boundry_condition(std::vector<T>& var){
-    var[Idx(0,0)] = var[Idx(1,1)];
-    var[Idx(0,1)] = var[Idx(1,1)];
-    var[Idx(1,0)] = var[Idx(1,1)];
-    var[Idx(N[0]-1,N[0]-1)] = var[Idx(N[0]-2,N[0]-2)];
-    var[Idx(N[0]-1,N[0]-2)] = var[Idx(N[0]-2,N[0]-2)];
-    var[Idx(N[0]-2,N[0]-1)] = var[Idx(N[0]-2,N[0]-2)];
-}
-
-template<class T, int n>
-void Fluid<T,n>::boundry_condition(std::vector<vec>& var){
-    var[Idx(0,0)] = var[Idx(1,1)];
-    var[Idx(0,1)] = var[Idx(1,1)];
-    var[Idx(1,0)] = var[Idx(1,1)];
-    var[Idx(N[0]-1,N[0]-1)] = var[Idx(N[0]-2,N[0]-2)];
-    var[Idx(N[0]-1,N[0]-2)] = var[Idx(N[0]-2,N[0]-2)];
-    var[Idx(N[0]-2,N[0]-1)] = var[Idx(N[0]-2,N[0]-2)];
-}
-
 
 template<class T, int n>
 void Fluid<T,n>::Diffuse(){
@@ -385,7 +231,6 @@ void Fluid<T,n>::Diffuse(){
     //         U1[Idx(i,j)] += k*(ux + uy);
     //     }
     // }
-    // if(!pbc) boundry_condition(U1);
     std::cout<<"U After Diff, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[2*Idx(N[0]/3+10,N[1]/2)]<<std::endl;
 }
 
@@ -402,7 +247,6 @@ void Fluid<T,n>::Project(){
             P[Idx(i,j)] = 0.0;
         }
     }
-    if(!pbc) boundry_condition(div);
 
     // calculate P
     int i0 = N[0]/2, j0 = N[1]/2;
@@ -416,7 +260,6 @@ void Fluid<T,n>::Project(){
                 P[Idx(i,j)] = (A+B-div[Idx(i,j)]*d2)/(2.0*(dx2+dy2));
             }
         }
-        if(!pbc) boundry_condition(P);
         if(iter==19 && P[Idx(i0,j0)]-prev>small_t) std::cout<<"Not converge: "<<P[Idx(i0,j0)]-prev<<std::endl;
     }
 
@@ -427,7 +270,6 @@ void Fluid<T,n>::Project(){
             U1[Idx(i,j)] -= gradP;
         }
     }
-    if(!pbc) boundry_condition(U1);
     std::cout<<"U After P, top:"<<U1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<U1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
     
 
@@ -439,6 +281,135 @@ void Fluid<T,n>::Project(){
             S1[Idx(i,j)] = S1[Idx(i,j)]/cs;
         }
     }
-    
     // std::cout<<"S after P:"<<max_val<<std::endl;
+}
+
+// RK2
+template<class T, int n>
+inline void Fluid<T,n>::TraceParticle(vec& X1, vec& X0)
+{
+    vec k1(Interpolate(U0,X1));
+    vec Xt = X1 - dt*k1;
+    
+    vec k2(Interpolate(U0,Xt));
+    X0 = X1 - (k1+k2)/2*dt;
+}
+
+
+template<class T, int n>
+inline Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X){
+    // portion along axis
+    T x = N[1]/2+X[0]/L[1]*N[1], y = N[0]/2-X[1]/L[0]*N[0];
+    
+    int i0 = y<N[0]/2? floor(y): floor(y)-1, i1 = i0 + 1,
+        j0 = x<N[1]/2? floor(x): floor(x)-1, j1 = j0 + 1;
+
+    //if(debug_flag) std::cout<<"interp: "<<"  "<<j0<<" ";
+    // x = (x-0.5-j0), y = (y-0.5-i0);
+    x = std::min(std::max((x-0.5-j0),0.0), 1.0);
+    y = std::min(std::max((y-0.5-i0),0.0), 1.0);
+    
+    vec ut = (1-x)*U[Idx(i0,j0)] + x*U[Idx(i0,j1)],
+        ub = (1-x)*U[Idx(i1,j0)] + x*U[Idx(i1,j1)];
+    
+    return ret((1-y)*ut + y*ub);
+}
+
+
+template<class T, int n>
+inline T Fluid<T,n>::Interpolate(std::vector<T>& S, vec& X){
+    // portion along axis
+    T x = N[1]/2+X[0]/L[1]*N[1], y = N[0]/2-X[1]/L[0]*N[0];
+    
+    int i0 = y<N[0]/2? floor(y): floor(y)-1, i1 = i0 + 1,
+        j0 = x<N[1]/2? floor(x): floor(x)-1, j1 = j0 + 1;
+
+    x = std::min(std::max((x-0.5-j0),0.0), 1.0);
+    y = std::min(std::max((y-0.5-i0),0.0), 1.0);
+
+    T st = (1-x)*S[Idx(i0,j0)] + x*S[Idx(i0,j1)],
+      sb = (1-x)*S[Idx(i1,j0)] + x*S[Idx(i1,j1)];
+
+    return (1-y)*st + y*sb;
+}
+
+template<class T, int n>
+inline int Fluid<T,n>::XtoIdx(const vec& X){
+    int j = N[1]/2+X[0]/L[1]*N[1], i = N[0]/2-X[1]/L[0]*N[0];
+    //if(debug_flag) std::cout<<"i,j:"<<i<<" "<<j<<"\n";
+    return Idx(i,j);
+}
+
+template<class T, int n>
+inline int Fluid<T,n>::Idx(int i, int j){
+    i = (i+N[0]) % N[0];
+    j = (j+N[1]) % N[1];
+    return i*N[1] + j;
+}
+
+template<class T, int n>
+void Fluid<T,n>::display()
+{
+    std::cout<<"display"<<std::endl;
+    for(int i=0; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            //if(S0[Idx(i,j)]<0){ std::cout<<"<0"<<"\n"; }
+            int val = std::min(S0[Idx(i,j)], (T)255);
+            image_color[Idx(i,j)] = make_pixel(val, val, val);
+        }
+    }
+    // obstacle
+    if(obstacle){
+        for(int i=0; i<N[0]; i++)
+            for(int j=0; j<N[1]; j++)
+                if((i-64)*(i-64)+(j-64)*(j-64)<81)
+                    image_color[Idx(i,j)] = make_pixel(200, 133, 20);
+    }
+    dump_png(image_color,N[0],N[1],"output.png");
+}
+
+template<class T, int n>
+void Fluid<T,n>::AddSource(const char* filename){
+    //TODO readpng modify out
+    Read_png(image_color,N[0],N[1],filename);
+
+    for(int i=0; i<N[0]; i++){
+        for(int j=0; j<N[1]; j++){
+            int r, g, b;
+            from_pixel(image_color[Idx(i,j)],r,g,b);
+            S0[Idx(i,j)] += (r+g+b)/3 * 0.5;
+        }
+    }
+}
+
+
+template<class T, int n>
+void Fluid<T,n>::Check_Symmetry(std::vector<vec>& U, std::vector<T>& S, 
+    const std::string& s){
+    if(!U.empty()){
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                if(U[Idx(i,j)][0]!=U[Idx(N[0]-1-i,j)][0 || 
+                    U[Idx(i,j)][1]!=U[Idx(N[0]-1-i,j)][1]]){
+                    std::cout<<"U h:"<<s<<std::endl; break;
+                }
+                if(U[Idx(i,j)][0]!=U[Idx(i,N[1]-1-j)][0] || 
+                    U[Idx(i,j)][1]!=U[Idx(i,N[1]-1-j)][1]){
+                    std::cout<<"U v:"<<s<<std::endl; break;
+                }
+            }
+        }
+    }
+    if(!S.empty()){
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                if(S[Idx(i,j)]!=S[Idx(N[0]-1-i,j)]){
+                    std::cout<<"S h:"<<s<<" row:"<<i<<std::endl; break;
+                }
+                if(S[Idx(i,j)]!=S[Idx(i,N[1]-1-j)]){
+                    std::cout<<"S v:"<<s<<std::endl; break;
+                }
+            }
+        }
+    }
 }
