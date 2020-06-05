@@ -26,7 +26,7 @@ public:
         }
         for(int i=0; i<N[0]; i++){
             for(int j=0; j<N[1]; j++){
-                U0[Idx(i,j)][0] = 3;
+                U0[Idx(i,j)][0] = 0;
                 U0[Idx(i,j)][1] = 0;
             }
         }
@@ -66,7 +66,7 @@ private:
     void Advect();
     void Diffuse();
     void Project();
-    void TraceParticle(const vec& X1, vec& X0);
+    void TraceParticle(vec& X1, vec& X0);
     vec Interpolate(std::vector<vec>& U, vec& X);
     T Interpolate(std::vector<T>& S, vec& X);
     void Interpolate(const std::vector<vec>& U, vec& ret_U, const std::vector<T>& S,
