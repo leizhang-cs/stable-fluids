@@ -51,7 +51,6 @@ private:
     // grids row*col: N[0]*N[1]
     vec L, D, O; // D[i] = L[i]/N[i]
     ivec N;
-    ivec size;
     std::vector<vec> U0, U1;
     std::vector<T> S0, S1;
     std::vector<T> P; // pressure
@@ -66,14 +65,13 @@ private:
     void Advect();
     void Diffuse();
     void Project();
+
     void TraceParticle(vec& X1, vec& X0);
     vec Interpolate(std::vector<vec>& U, vec& X);
     T Interpolate(std::vector<T>& S, vec& X);
-    void Interpolate(const std::vector<vec>& U, vec& ret_U, const std::vector<T>& S,
-        T& ret_S, vec& X, int flag);
+    void boundary_condition(std::vector<vec>& var); // TODO: aperiodic boundary
+    void boundary_condition(std::vector<T>& var); 
     // util
-    void boundry_condition(std::vector<T>& var);
-    void boundry_condition(std::vector<vec>& var);
     int Idx(int i, int j);
     int XtoIdx(const vec& X);
     T IdxtoX(const int i, const int dim); // i,j to y,x

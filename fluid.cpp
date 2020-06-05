@@ -18,7 +18,6 @@ static const double small_t = 1e-4;
 template<class T, int n>
 void Fluid<T,n>::simulate(vec& F, T Source, vec& X){
     Vstep(F, Source, X);
-    //S.step();
     std::swap(U0, U1);
     std::swap(S0, S1);
 }
@@ -44,8 +43,6 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
             S1[Idx(i,j)] = 0;
         }
     }
-
-    //int index = XtoIdx(X);
 
     // w1 = f(w0)
     vec du_top = F*dt;
@@ -82,12 +79,6 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
     //Check_Symmetry(U1, S1, "addF");
     std::cout<<"du top: "<<du_top<<", btm: "<<du_btm<<std::endl;
     std::cout<<"delta source: "<<ds<<std::endl;
-}
-
-template<class T, int n>
-inline T Fluid<T,n>::IdxtoX(const int i, const int dim){
-    if(dim==0) return (0.5 - (i+0.5)/N[dim])*L[dim];
-    else return ((i+0.5)/N[dim] - 0.5)*L[dim];
 }
 
 template<class T, int n>
@@ -312,7 +303,7 @@ inline Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X){
     vec ut = (1-x)*U[Idx(i0,j0)] + x*U[Idx(i0,j1)],
         ub = (1-x)*U[Idx(i1,j0)] + x*U[Idx(i1,j1)];
     
-    return ret((1-y)*ut + y*ub);
+    return (1-y)*ut + y*ub;
 }
 
 
@@ -338,6 +329,12 @@ inline int Fluid<T,n>::XtoIdx(const vec& X){
     int j = N[1]/2+X[0]/L[1]*N[1], i = N[0]/2-X[1]/L[0]*N[0];
     //if(debug_flag) std::cout<<"i,j:"<<i<<" "<<j<<"\n";
     return Idx(i,j);
+}
+
+template<class T, int n>
+inline T Fluid<T,n>::IdxtoX(const int i, const int dim){
+    if(dim==0) return (0.5 - (i+0.5)/N[dim])*L[dim];
+    else return ((i+0.5)/N[dim] - 0.5)*L[dim];
 }
 
 template<class T, int n>
