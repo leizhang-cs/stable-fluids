@@ -49,15 +49,15 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
 
     // w1 = f(w0)
     vec du_top = F*dt;
-    for(int i=0; i<N[0]/3; i++){
+    for(int i=0; i<N[0]/2; i++){
         for(int j=0; j<N[1]; j++){
             U1[Idx(i,j)] = du_top;
             //U1[Idx(i,j)] = F*dt*S0[Idx(i,j)];
         }
     }
     
-    vec du_btm = -F*dt;
-    for(int i=2*N[0]/3; i<N[0]; i++){
+    vec du_btm = F*dt;
+    for(int i=N[0]/2; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             U1[Idx(i,j)] = du_btm;
             //U1[Idx(i,j)] = F*dt*S0[Idx(i,j)];
@@ -110,14 +110,6 @@ void Fluid<T,n>::Advect(){
             // Interpolation
             vec ut =  Interpolate(U0, X0);
             T st = Interpolate(S0, X0);
-            //int flag = 2;
-            //if((i==5*N[1]/8+10) && j==4*N[1]/8){ std::cout<<X1<<"=>"<<X0<<"\n"; std::cout<<"i,j: "<<i<<" "<<j<<" "; debug_flag = true; }
-            //if(j==N[1]/4+1) debug_flag = false;
-            //Interpolate(U0, ut, S0, st, X0, flag);
-            //if(j==N[1]/4+1) debug_flag = true;
-            //if(j==N[1]/4+1) std::cout<<"st:"<<st<<" <> S0:"<<S0[XtoIdx(X0)]<<std::endl;
-            //if(st<-small_t) std::cout<<st<<"\n";
-            //debug_flag = false;
             
             U1[Idx(i,j)] += ut;
             S1[Idx(i,j)] += st;
@@ -129,64 +121,17 @@ void Fluid<T,n>::Advect(){
     //std::cout<<"Sssssssss:"<<S1[Idx(100,64)]<<"\n";
 }
 
-
+// RK2
 template<class T, int n>
 inline void Fluid<T,n>::TraceParticle(vec& X1, vec& X0)
 {
     vec k1(Interpolate(U0,X1));
     vec Xt = X1 - dt*k1;
     
-    // vec k2(Interpolate(U0,Xt));
-    
-    // X0 = X1 - (k1+k2)/2*dt;
-    
-    X0 = Xt;
-   
+    vec k2(Interpolate(U0,Xt));
+    X0 = X1 - (k1+k2)/2*dt;
 }
 
-// TODO: write as mode 1 and 2
-template<class T, int n>
-inline void Fluid<T,n>::Interpolate(const std::vector<vec>& U, vec& ret_U, 
-    const std::vector<T>& S, T& ret_S, vec& X, int flag){
-    // portion along axis
-    // T x = X[0]/L[1], y = X[1]/L[0];
-    // int i0 = floor(N[0]/2-y*N[0]), i1 = i0<N[0]/2? i0+1: i0-1,
-    //     j0 = floor(N[1]/2+x*N[1]), j1 = j0<N[1]/2? j0+1: j0-1;
-    // if(i0>i1) std::swap(i0,i1);
-    // if(j0>j1) std::swap(j0,j1);
-    // // portion in a cell
-    // x = (N[1]/2+x*N[1]-j0); y = (N[0]/2-y*N[0]-i0);
-    // //x = 0.5, y = 0.5;
-    // if(x<0 || x>1) std::cout<<j0<<" "<<N[1]/2+ X[0]/L[1]*N[1]<<std::endl;
-    T x = N[1]/2+X[0]/L[1]*N[1], y = N[0]/2-X[1]/L[0]*N[0];
-    
-    int i0 = y<N[0]/2? floor(y): floor(y)-1, i1 = i0 + 1,
-        j0 = x<N[1]/2? floor(x): floor(x)-1, j1 = j0 + 1;
-
-    if(debug_flag) std::cout<<y<<" "<<i0<<" "<<i1<<"  "<<x<<"  "<<j0<<" "<<j1<<"\n";
-    if(debug_flag) std::cout<<x-0.5<<"  "<<y-0.5<<std::endl;
-
-    x = (x-0.5-j0), y = (y-0.5-i0);
-    
-    if(debug_flag) std::cout<<"portion: "<<x<<"  "<<y<<std::endl;
-    if(debug_flag) std::cout<<S[Idx(i0,j0)]<<" "<<S[Idx(i1,j0)]<<" "<<S[Idx(i0,j1)]<<" "<<S[Idx(i1,j1)]<<"\n";
-
-    if(flag==0 || flag==2){
-        vec ut = (1-x)*U[Idx(i0,j0)] + x*U[Idx(i0,j1)],
-            ub = (1-x)*U[Idx(i1,j0)] + x*U[Idx(i1,j1)];
-        ret_U = (1-y)*ut + y*ub;
-    }
-    if(flag==1 || flag==2){
-        T st = (1-x)*S[Idx(i0,j0)] + x*S[Idx(i0,j1)],
-          sb = (1-x)*S[Idx(i1,j0)] + x*S[Idx(i1,j1)];
-        ret_S = (1-y)*st + y*sb;
-        if(debug_flag) std::cout<<j0<<" "<<j1<<"  S:"<<st<<"\n";
-    }
-    // if(debug_flag){
-    //     x = X[0]/L[0];
-    //     std::cout<<X<<" S"<<ret_S<<" i,j:"<<j0<<" "<<j1<<"   "<<N[1]/2-x*N[1]<<" floor:"<<floor(N[0]/2-x*N[0])<<"\n";
-    // }
-}
 
 template<class T, int n>
 inline Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X){
@@ -197,7 +142,7 @@ inline Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X){
         j0 = x<N[1]/2? floor(x): floor(x)-1, j1 = j0 + 1;
 
     //if(debug_flag) std::cout<<"interp: "<<"  "<<j0<<" ";
-//    x = (x-0.5-j0), y = (y-0.5-i0);
+    //    x = (x-0.5-j0), y = (y-0.5-i0);
     x = std::min(std::max((x-0.5-j0),0.0), 1.0);
     y = std::min(std::max((y-0.5-i0),0.0), 1.0);
     
@@ -331,12 +276,10 @@ void Fluid<T,n>::boundry_condition(std::vector<vec>& var){
 }
 
 
-
 template<class T, int n>
 void Fluid<T,n>::Diffuse(){
     // U1, U0, visc, dt 
-    // conjugate gradient. FTCS. BTCS???
-    // unknown: U1[Idx(i,j)]
+    // FTCS
     // FFT
     int num = N[0]*N[1];
     fftw_complex* ux = new fftw_complex[num]();
@@ -372,8 +315,6 @@ void Fluid<T,n>::Diffuse(){
             T x = 0.5*j;
             T r = x*x + y*y;
             T f = 1/(1 + visc*dt*r);
-            //T f = exp(-visc*dt*r);
-            //if(rand()%100>90) std::cout<<f<<" ff "<<1/(1 + visc*dt*r)<<"\n";
             uxf[Idx(i,j)][0] *= f; uxf[Idx(i,j)][1] *= f;
             uyf[Idx(i,j)][0] *= f; uyf[Idx(i,j)][1] *= f;
         }
@@ -434,14 +375,14 @@ void Fluid<T,n>::Diffuse(){
     delete []uyf;
     delete []sf;
     
-    // numerical method
+    // FTCS scheme
     // T k = visc*dt; // sign -1?
     // for(int i=0; i<N[0]; i++){
     //     for(int j=0; j<N[1]; j++){
     //         // TODO: optimization
     //         vec ux = (U0[Idx(i+1,j)] - 2.0*U0[Idx(i,j)] + U0[Idx(i-1,j)])/(D[0]*D[0]);
     //         vec uy = (U0[Idx(i,j+1)] - 2.0*U0[Idx(i,j)] + U0[Idx(i,j-1)])/(D[1]*D[1]);
-    //         U1[Idx(i,j)] += k*(ux+uy);//k*(ux + uy);
+    //         U1[Idx(i,j)] += k*(ux + uy);
     //     }
     // }
     // if(!pbc) boundry_condition(U1);
@@ -480,12 +421,10 @@ void Fluid<T,n>::Project(){
     }
 
     // w4 = w3 - divP
-    T max_U = 0;
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             vec gradP(0.5*(P[Idx(i+1,j)]-P[Idx(i-1,j)])/D[0], 0.5*(P[Idx(i,j+1)]-P[Idx(i,j-1)])/D[1]);
             U1[Idx(i,j)] -= gradP;
-            max_U = std::max(max_U, U1[Idx(i,j)][0]);
         }
     }
     if(!pbc) boundry_condition(U1);
