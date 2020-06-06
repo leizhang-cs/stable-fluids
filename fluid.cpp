@@ -116,8 +116,8 @@ void Fluid<T,n>::Advect(){
 template<class T, int n>
 void Fluid<T,n>::Diffuse(){
     // U1, U0, visc, dt 
-    // FTCS
-    // FFT
+    // FTCS, BTCS, FFT
+    /*
     int num = N[0]*N[1];
     fftw_complex* ux = new fftw_complex[num]();
     fftw_complex* uy = new fftw_complex[num]();
@@ -211,17 +211,32 @@ void Fluid<T,n>::Diffuse(){
     delete []uxf;
     delete []uyf;
     delete []sf;
+    */
     
     // FTCS scheme
-    // T k = visc*dt; // sign -1?
+    // T k = visc*dt;
     // for(int i=0; i<N[0]; i++){
     //     for(int j=0; j<N[1]; j++){
     //         // TODO: optimization
-    //         vec ux = (U0[Idx(i+1,j)] - 2.0*U0[Idx(i,j)] + U0[Idx(i-1,j)])/(D[0]*D[0]);
-    //         vec uy = (U0[Idx(i,j+1)] - 2.0*U0[Idx(i,j)] + U0[Idx(i,j-1)])/(D[1]*D[1]);
-    //         U1[Idx(i,j)] += k*(ux + uy);
+    //         T ux = (U0[Idx(i+1,j)][0] - 2.0*U0[Idx(i,j)][0] + U0[Idx(i-1,j)][0])/(D[0]*D[0]);
+    //         T uy = (U0[Idx(i,j+1)][1] - 2.0*U0[Idx(i,j)][1] + U0[Idx(i,j-1)][1])/(D[1]*D[1]);
+    //         U1[Idx(i,j)] += (1+k)*vec(ux,uy);
     //     }
     // }
+
+    // /BTCS scheme
+    T k = visc*dt;
+    std::vector<vec> Ut(U1);
+    for(int iter=0; iter<20; iter++){
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                U1[Idx(i,j)][0] = Ut[Idx(i,j)][0] + 
+                    k * (U1[Idx(i+1,j)][0] - 2.0*U1[Idx(i,j)][0] + U1[Idx(i-1,j)][0])/(D[0]*D[0]);
+                U1[Idx(i,j)][1] = Ut[Idx(i,j)][1] + 
+                    k * (U1[Idx(i,j+1)][1] - 2.0*U1[Idx(i,j)][1] + U1[Idx(i,j-1)][1])/(D[1]*D[1]);
+            }
+        }
+    }
     std::cout<<"U After Diff, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[2*Idx(N[0]/3+10,N[1]/2)]<<std::endl;
 }
 

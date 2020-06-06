@@ -22,7 +22,7 @@ int main(){
     Type density = 1000.0;
     //std::cout<<"beforeFluid"<<L[0]<<" "<<L[1]<<" "<<N[0]<<std::endl;
     Fluid<Type,Ndim> fluid(visc, kS, aS, dt, density, L, N);
-    Vec<Type,Ndim> Force(0.2, 0), Force0(0, 0);
+    Vec<Type,Ndim> Force(0.2, 0.2), Force0(0, 0);
     Vec<Type,Ndim> X(0.5, 0.5);
     Type Source = 1024, Source0 = 0;
     int simulating = 1;
@@ -35,7 +35,6 @@ int main(){
         /* handle display and user interaction */
         /* get forces F and sources Ssource from the UI */
         if(i%10==0){
-            
             std::cout<<"input 1 for continue; 0 for break:";
             std::cin>>simulating;
         }
