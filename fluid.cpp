@@ -1,10 +1,9 @@
-#include <fftw3.h>
-#include <cassert>
 #include "fluid.h"
 #include "pixel.h"
+#include <fftw3.h>
+#include <cassert>
 
 
-// I would test uniform translation (easy to debug) and the Taylor-Green vortex artefacts near the edges.
 using Type = double;
 const int Ndim = 2;
 
@@ -46,15 +45,15 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
 
     // w1 = f(w0)
     vec du_top = F*dt;
-    for(int i=0; i<N[0]/2; i++){
+    for(int i=0; i<N[0]/3; i++){
         for(int j=0; j<N[1]; j++){
             U1[Idx(i,j)] = du_top;
             //U1[Idx(i,j)] = F*dt*S0[Idx(i,j)];
         }
     }
     
-    vec du_btm = F*dt;
-    for(int i=N[0]/2; i<N[0]; i++){
+    vec du_btm = -F*dt;
+    for(int i=2*N[0]/3; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             U1[Idx(i,j)] = du_btm;
             //U1[Idx(i,j)] = F*dt*S0[Idx(i,j)];
@@ -64,7 +63,7 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
     // add source
     T ds = S;
     for(int i=3*N[0]/8; i<5*N[0]/8; i++){
-        for(int j=0*N[1]/8; j<2*N[1]/8; j++){
+        for(int j=3*N[1]/8; j<5*N[1]/8; j++){
             S1[Idx(i,j)] = ds;
         }
     }
@@ -89,27 +88,20 @@ void Fluid<T,n>::Advect(){
 
     for(int i=0; i<N[0]; i++){
         T y = IdxtoX(i,0); // (0, N[1]) <=> (L[1], -L[1])
-        //std::cout<<i<<"=>"<<y<<"\n";
         for(int j=0; j<N[1]; j++){
             vec X0;
             vec X1(IdxtoX(j,1), y); // (0, N[0]) <=> (-L[0], L[0])
             
             TraceParticle(X1, X0);
-            //if(i==4*N[1]/8+1){ debug_flag = true;  std::cout<<"trace:"<<X1<<"=>"<<X0<<"\n"; }
-            
+
             // w2 = f(w1)
             // Interpolation
-            vec ut =  Interpolate(U0, X0);
-            T st = Interpolate(S0, X0);
-            
-            U1[Idx(i,j)] += ut;
-            S1[Idx(i,j)] += st;
+            U1[Idx(i,j)] += Interpolate(U0, X0);
+            S1[Idx(i,j)] += Interpolate(S0, X0);
         }
     }
     //Check_Symmetry(U1, S1, "adv");
     std::cout<<"U After Adv, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[2*Idx(N[0]/3+10,N[1]/2)]<<std::endl;
-    //std::cout<<"S after Adv: "<<min_val<<std::endl;
-    //std::cout<<"Sssssssss:"<<S1[Idx(100,64)]<<"\n";
 }
 
 
@@ -117,6 +109,31 @@ template<class T, int n>
 void Fluid<T,n>::Diffuse(){
     // U1, U0, visc, dt 
     // FTCS, BTCS, FFT
+    
+    // FTCS scheme
+    // T k = visc*dt;
+    // for(int i=0; i<N[0]; i++){
+    //     for(int j=0; j<N[1]; j++){
+    //         // TODO: optimization
+    //         T ux = (U0[Idx(i+1,j)][0] - 2.0*U0[Idx(i,j)][0] + U0[Idx(i-1,j)][0])/(D[0]*D[0]);
+    //         T uy = (U0[Idx(i,j+1)][1] - 2.0*U0[Idx(i,j)][1] + U0[Idx(i,j-1)][1])/(D[1]*D[1]);
+    //         U1[Idx(i,j)] += (1+k)*vec(ux,uy);
+    //     }
+    // }
+
+    // /BTCS scheme
+    T k = visc*dt;
+    std::vector<vec> Ut(U1);
+    for(int iter=0; iter<20; iter++){
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                U1[Idx(i,j)][0] = Ut[Idx(i,j)][0] + 
+                    k * (U1[Idx(i+1,j)][0] - 2.0*U1[Idx(i,j)][0] + U1[Idx(i-1,j)][0])/(D[0]*D[0]);
+                U1[Idx(i,j)][1] = Ut[Idx(i,j)][1] + 
+                    k * (U1[Idx(i,j+1)][1] - 2.0*U1[Idx(i,j)][1] + U1[Idx(i,j-1)][1])/(D[1]*D[1]);
+            }
+        }
+    }
     /*
     int num = N[0]*N[1];
     fftw_complex* ux = new fftw_complex[num]();
@@ -213,30 +230,6 @@ void Fluid<T,n>::Diffuse(){
     delete []sf;
     */
     
-    // FTCS scheme
-    // T k = visc*dt;
-    // for(int i=0; i<N[0]; i++){
-    //     for(int j=0; j<N[1]; j++){
-    //         // TODO: optimization
-    //         T ux = (U0[Idx(i+1,j)][0] - 2.0*U0[Idx(i,j)][0] + U0[Idx(i-1,j)][0])/(D[0]*D[0]);
-    //         T uy = (U0[Idx(i,j+1)][1] - 2.0*U0[Idx(i,j)][1] + U0[Idx(i,j-1)][1])/(D[1]*D[1]);
-    //         U1[Idx(i,j)] += (1+k)*vec(ux,uy);
-    //     }
-    // }
-
-    // /BTCS scheme
-    T k = visc*dt;
-    std::vector<vec> Ut(U1);
-    for(int iter=0; iter<20; iter++){
-        for(int i=0; i<N[0]; i++){
-            for(int j=0; j<N[1]; j++){
-                U1[Idx(i,j)][0] = Ut[Idx(i,j)][0] + 
-                    k * (U1[Idx(i+1,j)][0] - 2.0*U1[Idx(i,j)][0] + U1[Idx(i-1,j)][0])/(D[0]*D[0]);
-                U1[Idx(i,j)][1] = Ut[Idx(i,j)][1] + 
-                    k * (U1[Idx(i,j+1)][1] - 2.0*U1[Idx(i,j)][1] + U1[Idx(i,j-1)][1])/(D[1]*D[1]);
-            }
-        }
-    }
     std::cout<<"U After Diff, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[2*Idx(N[0]/3+10,N[1]/2)]<<std::endl;
 }
 
@@ -278,16 +271,13 @@ void Fluid<T,n>::Project(){
     }
     std::cout<<"U After P, top:"<<U1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<U1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
     
-
     // source: disspation term
-    //T max_val = 0;
     T cs = 1.0 + dt*aS;
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             S1[Idx(i,j)] = S1[Idx(i,j)]/cs;
         }
     }
-    // std::cout<<"S after P:"<<max_val<<std::endl;
 }
 
 // RK2
@@ -310,7 +300,6 @@ inline Vec<T,n> Fluid<T,n>::Interpolate(std::vector<vec>& U, vec& X){
     int i0 = y<N[0]/2? floor(y): floor(y)-1, i1 = i0 + 1,
         j0 = x<N[1]/2? floor(x): floor(x)-1, j1 = j0 + 1;
 
-    //if(debug_flag) std::cout<<"interp: "<<"  "<<j0<<" ";
     // x = (x-0.5-j0), y = (y-0.5-i0);
     x = std::min(std::max((x-0.5-j0),0.0), 1.0);
     y = std::min(std::max((y-0.5-i0),0.0), 1.0);
@@ -342,7 +331,6 @@ inline T Fluid<T,n>::Interpolate(std::vector<T>& S, vec& X){
 template<class T, int n>
 inline int Fluid<T,n>::XtoIdx(const vec& X){
     int j = N[1]/2+X[0]/L[1]*N[1], i = N[0]/2-X[1]/L[0]*N[0];
-    //if(debug_flag) std::cout<<"i,j:"<<i<<" "<<j<<"\n";
     return Idx(i,j);
 }
 
@@ -365,7 +353,6 @@ void Fluid<T,n>::display()
     std::cout<<"display"<<std::endl;
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
-            //if(S0[Idx(i,j)]<0){ std::cout<<"<0"<<"\n"; }
             int val = std::min(S0[Idx(i,j)], (T)255);
             image_color[Idx(i,j)] = make_pixel(val, val, val);
         }
@@ -377,19 +364,18 @@ void Fluid<T,n>::display()
                 if((i-64)*(i-64)+(j-64)*(j-64)<81)
                     image_color[Idx(i,j)] = make_pixel(200, 133, 20);
     }
-    dump_png(image_color,N[0],N[1],"output.png");
+    dump_png(image_color,N[1],N[0],"output.png");
 }
 
 template<class T, int n>
 void Fluid<T,n>::AddSource(const char* filename){
-    //TODO readpng modify out
-    Read_png(image_color,N[0],N[1],filename);
+    Read_png(image_color,N[1],N[0],filename);
 
     for(int i=0; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
             int r, g, b;
             from_pixel(image_color[Idx(i,j)],r,g,b);
-            S0[Idx(i,j)] += (r+g+b)/3 * 0.5;
+            S0[Idx(i,j)] += (r+g+b)/3 * 0.9;
         }
     }
 }

@@ -48,8 +48,8 @@ private:
     T aS; // dissipation constant
     T dt;
     T density;
-    // grids row*col: N[0]*N[1]
-    vec L, D, O; // D[i] = L[i]/N[i]
+    vec L; // grids row*col: N[0]*N[1], TODO: L correspond to X
+    vec D; // D[i] = L[i]/N[i]
     ivec N;
     std::vector<vec> U0, U1;
     std::vector<T> S0, S1;

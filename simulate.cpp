@@ -11,25 +11,22 @@ int main(){
     using Type = double;
     const int Ndim = 2;
     
-    //std::cout<<"beforeAlloc"<<std::endl;
-    // 32,32. 32, 32. dt=1, density=1, F=(1,0.5)
     Vec<Type,Ndim> L(128,128);
-    Vec<int,Ndim> N(128,128); // D[i] = L[i]/N[i]
+    Vec<int,Ndim> N(64,128); // D[i] = L[i]/N[i]
     Type visc = 9*1e-4;
     Type kS = 0.1; // diffusion constant
     Type aS = 0.01; // dissipation constant
     Type dt = 1;
     Type density = 1000.0;
-    //std::cout<<"beforeFluid"<<L[0]<<" "<<L[1]<<" "<<N[0]<<std::endl;
     Fluid<Type,Ndim> fluid(visc, kS, aS, dt, density, L, N);
-    Vec<Type,Ndim> Force(0.2, 0.2), Force0(0, 0);
+    Vec<Type,Ndim> Force(-0.2, 0), Force0(0, 0);
     Vec<Type,Ndim> X(0.5, 0.5);
     Type Source = 1024, Source0 = 0;
     int simulating = 1;
     
     std::cout<<"beforeLoop, L:"<<L[0]<<", N:"<<N[0]<<std::endl;
 {
-    using namespace std::this_thread;     // sleep_for, sleep_until
+    using namespace std::this_thread;  // sleep_for, sleep_until
     using namespace std::chrono_literals;
     for(int i=0; i<10000; i++){
         /* handle display and user interaction */
@@ -40,8 +37,8 @@ int main(){
         }
         if(!simulating) break;
         
-        if(i<0) fluid.AddSource("bunny128.png");
-        else if(true) fluid.simulate(Force, Source, X);
+        if(i==0) fluid.AddSource("bunny128.png");
+        else if(true) fluid.simulate(Force, Source0, X);
         else fluid.simulate(Force0, Source0, X);
         
         fluid.display();
