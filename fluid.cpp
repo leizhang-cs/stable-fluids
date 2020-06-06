@@ -109,126 +109,126 @@ template<class T, int n>
 void Fluid<T,n>::Diffuse(){
     // U1, U0, visc, dt 
     // FTCS, BTCS, FFT
-    
-    // FTCS scheme
-    // T k = visc*dt;
-    // for(int i=0; i<N[0]; i++){
-    //     for(int j=0; j<N[1]; j++){
-    //         // TODO: optimization
-    //         T ux = (U0[Idx(i+1,j)][0] - 2.0*U0[Idx(i,j)][0] + U0[Idx(i-1,j)][0])/(D[0]*D[0]);
-    //         T uy = (U0[Idx(i,j+1)][1] - 2.0*U0[Idx(i,j)][1] + U0[Idx(i,j-1)][1])/(D[1]*D[1]);
-    //         U1[Idx(i,j)] += (1+k)*vec(ux,uy);
-    //     }
-    // }
 
-    // /BTCS scheme
-    T k = visc*dt;
-    std::vector<vec> Ut(U1);
-    for(int iter=0; iter<20; iter++){
-        for(int i=0; i<N[0]; i++){
-            for(int j=0; j<N[1]; j++){
-                U1[Idx(i,j)][0] = Ut[Idx(i,j)][0] + 
-                    k * (U1[Idx(i+1,j)][0] - 2.0*U1[Idx(i,j)][0] + U1[Idx(i-1,j)][0])/(D[0]*D[0]);
-                U1[Idx(i,j)][1] = Ut[Idx(i,j)][1] + 
-                    k * (U1[Idx(i,j+1)][1] - 2.0*U1[Idx(i,j)][1] + U1[Idx(i,j-1)][1])/(D[1]*D[1]);
+    if(!FFT_scheme){
+        // FTCS scheme
+        // T k = visc*dt;
+        // for(int i=0; i<N[0]; i++){
+        //     for(int j=0; j<N[1]; j++){
+        //         // TODO: optimization
+        //         T ux = (U0[Idx(i+1,j)][0] - 2.0*U0[Idx(i,j)][0] + U0[Idx(i-1,j)][0])/(D[0]*D[0]);
+        //         T uy = (U0[Idx(i,j+1)][1] - 2.0*U0[Idx(i,j)][1] + U0[Idx(i,j-1)][1])/(D[1]*D[1]);
+        //         U1[Idx(i,j)] += (1+k)*vec(ux,uy);
+        //     }
+        // }
+
+        // /BTCS scheme
+        T k = visc*dt;
+        std::vector<vec> Ut(U1);
+        for(int iter=0; iter<20; iter++){
+            for(int i=0; i<N[0]; i++){
+                for(int j=0; j<N[1]; j++){
+                    U1[Idx(i,j)][0] = Ut[Idx(i,j)][0] + 
+                        k * (U1[Idx(i+1,j)][0] - 2.0*U1[Idx(i,j)][0] + U1[Idx(i-1,j)][0])/(D[0]*D[0]);
+                    U1[Idx(i,j)][1] = Ut[Idx(i,j)][1] + 
+                        k * (U1[Idx(i,j+1)][1] - 2.0*U1[Idx(i,j)][1] + U1[Idx(i,j-1)][1])/(D[1]*D[1]);
+                }
             }
         }
     }
-    /*
-    int num = N[0]*N[1];
-    fftw_complex* ux = new fftw_complex[num]();
-    fftw_complex* uy = new fftw_complex[num]();
-    fftw_complex* s = new fftw_complex[num]();
-    fftw_complex* uxf = new fftw_complex[num]();
-    fftw_complex* uyf = new fftw_complex[num]();
-    fftw_complex* sf = new fftw_complex[num]();
+    else{
+        int num = N[0]*N[1];
+        fftw_complex* ux = new fftw_complex[num]();
+        fftw_complex* uy = new fftw_complex[num]();
+        fftw_complex* s = new fftw_complex[num]();
+        fftw_complex* uxf = new fftw_complex[num]();
+        fftw_complex* uyf = new fftw_complex[num]();
+        fftw_complex* sf = new fftw_complex[num]();
 
-    for(int i=0; i<N[0]; i++){
-        for(int j=0; j<N[1]; j++){
-            ux[Idx(i,j)][0] = U1[Idx(i,j)][0];
-            uy[Idx(i,j)][0] = U1[Idx(i,j)][1];
-            s[Idx(i,j)][0] = S1[Idx(i,j)];
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                ux[Idx(i,j)][0] = U1[Idx(i,j)][0];
+                uy[Idx(i,j)][0] = U1[Idx(i,j)][1];
+                s[Idx(i,j)][0] = S1[Idx(i,j)];
+            }
         }
+        //std::cout<<"U before Diff, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[Idx(N[0]/3+10,N[1]/2)]<<std::endl;
+        //std::cout<<"S before Diff: "<<min_val<<std::endl;
+        fftw_plan pf_x = fftw_plan_dft_1d(num, ux, uxf, FFTW_FORWARD, FFTW_ESTIMATE);
+        fftw_plan pf_y = fftw_plan_dft_1d(num, uy, uyf, FFTW_FORWARD, FFTW_ESTIMATE);
+        fftw_plan pf_s = fftw_plan_dft_1d(num, s, sf, FFTW_FORWARD, FFTW_ESTIMATE);
+        fftw_execute(pf_x);
+        fftw_execute(pf_y);
+        fftw_execute(pf_s);
+
+        for(int i=0; i<N[0]; i++){
+            //T x = i;
+            //T y = IdxtoX(i,0);
+            T y = i<=N[0]/2? i: i-N[0];
+            for(int j=0; j<N[1]; j++){
+                // w(k) - k*w(k)*k
+                //T x = IdxtoX(j,1);
+                T x = 0.5*j;
+                T r = x*x + y*y;
+                T f = 1/(1 + visc*dt*r);
+                uxf[Idx(i,j)][0] *= f; uxf[Idx(i,j)][1] *= f;
+                uyf[Idx(i,j)][0] *= f; uyf[Idx(i,j)][1] *= f;
+            }
+        }// Diffuse
+        
+        //Projection by FFT
+        // for(int i=0; i<N[0]; i++){
+        //     //T x = i;
+        //     //T y = IdxtoX(i,0);
+        //     T y = i<=N[0]/2? i: i-N[0];
+        //     for(int j=0; j<N[1]; j++){
+        //         // w(k) - k*w(k)*k
+        //         //T x = IdxtoX(j,1);
+        //         T x = 0.5*j;
+        //         T r = x*x + y*y;
+        //         if(r==0.0) continue;
+        //         fftw_complex uxt, uyt;
+        //         uxt[0] = (1-x*x/r)*uxf[Idx(i,j)][0] - x*y/r*uyf[Idx(i,j)][0];
+        //         uxt[1] = (1-x*x/r)*uxf[Idx(i,j)][1] - x*y/r*uyf[Idx(i,j)][1];
+        //         uyt[0] = -y*x/r*uxf[Idx(i,j)][0] + (1-y*y/r)*uyf[Idx(i,j)][0];
+        //         uyt[1] = -y*x/r*uxf[Idx(i,j)][1] + (1-y*y/r)*uyf[Idx(i,j)][1];
+        //         uxf[Idx(i,j)][0] = uxt[0]; 
+        //         uxf[Idx(i,j)][1] = uxt[1];
+        //         uyf[Idx(i,j)][0] = uyt[0]; 
+        //         uyf[Idx(i,j)][1] = uyt[1];
+        //     }
+        // }
+        
+        fftw_plan pb_x = fftw_plan_dft_1d(num, uxf, ux, FFTW_BACKWARD, FFTW_ESTIMATE);
+        fftw_plan pb_y = fftw_plan_dft_1d(num, uyf, uy, FFTW_BACKWARD, FFTW_ESTIMATE);
+        fftw_plan pb_s = fftw_plan_dft_1d(num, sf, s, FFTW_BACKWARD, FFTW_ESTIMATE);
+        fftw_execute(pb_x);
+        fftw_execute(pb_y);
+        fftw_execute(pb_s);
+        
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                U1[Idx(i,j)][0] = ux[Idx(i,j)][0]/num;
+                U1[Idx(i,j)][1] = uy[Idx(i,j)][0]/num;
+                S1[Idx(i,j)] = s[Idx(i,j)][0]/num;
+            }
+        }    
+        std::cout<<"U After Proj, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[2*Idx(N[0]/3+10,N[1]/2)]<<std::endl;
+        //Check_Symmetry(U1, S1, "diff");
+
+        fftw_destroy_plan(pf_x);
+        fftw_destroy_plan(pf_y);
+        fftw_destroy_plan(pf_s);
+        fftw_destroy_plan(pb_x);
+        fftw_destroy_plan(pb_y);
+        fftw_destroy_plan(pb_s);
+        delete []ux;
+        delete []uy;
+        delete []s;
+        delete []uxf;
+        delete []uyf;
+        delete []sf;
     }
-    //std::cout<<"U before Diff, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[Idx(N[0]/3+10,N[1]/2)]<<std::endl;
-    //std::cout<<"S before Diff: "<<min_val<<std::endl;
-    fftw_plan pf_x = fftw_plan_dft_1d(num, ux, uxf, FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan pf_y = fftw_plan_dft_1d(num, uy, uyf, FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan pf_s = fftw_plan_dft_1d(num, s, sf, FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_execute(pf_x);
-    fftw_execute(pf_y);
-    fftw_execute(pf_s);
-
-    for(int i=0; i<N[0]; i++){
-        //T x = i;
-        //T y = IdxtoX(i,0);
-        T y = i<=N[0]/2? i: i-N[0];
-        for(int j=0; j<N[1]; j++){
-            // w(k) - k*w(k)*k
-            //T x = IdxtoX(j,1);
-            T x = 0.5*j;
-            T r = x*x + y*y;
-            T f = 1/(1 + visc*dt*r);
-            uxf[Idx(i,j)][0] *= f; uxf[Idx(i,j)][1] *= f;
-            uyf[Idx(i,j)][0] *= f; uyf[Idx(i,j)][1] *= f;
-        }
-    }// Diffuse
-    
-    //Projection by FFT
-    // for(int i=0; i<N[0]; i++){
-    //     //T x = i;
-    //     //T y = IdxtoX(i,0);
-    //     T y = i<=N[0]/2? i: i-N[0];
-    //     for(int j=0; j<N[1]; j++){
-    //         // w(k) - k*w(k)*k
-    //         //T x = IdxtoX(j,1);
-    //         T x = 0.5*j;
-    //         T r = x*x + y*y;
-    //         if(r==0.0) continue;
-    //         fftw_complex uxt, uyt;
-    //         uxt[0] = (1-x*x/r)*uxf[Idx(i,j)][0] - x*y/r*uyf[Idx(i,j)][0];
-    //         uxt[1] = (1-x*x/r)*uxf[Idx(i,j)][1] - x*y/r*uyf[Idx(i,j)][1];
-    //         uyt[0] = -y*x/r*uxf[Idx(i,j)][0] + (1-y*y/r)*uyf[Idx(i,j)][0];
-    //         uyt[1] = -y*x/r*uxf[Idx(i,j)][1] + (1-y*y/r)*uyf[Idx(i,j)][1];
-    //         uxf[Idx(i,j)][0] = uxt[0]; 
-    //         uxf[Idx(i,j)][1] = uxt[1];
-    //         uyf[Idx(i,j)][0] = uyt[0]; 
-    //         uyf[Idx(i,j)][1] = uyt[1];
-    //     }
-    // }
-    
-
-    fftw_plan pb_x = fftw_plan_dft_1d(num, uxf, ux, FFTW_BACKWARD, FFTW_ESTIMATE);
-    fftw_plan pb_y = fftw_plan_dft_1d(num, uyf, uy, FFTW_BACKWARD, FFTW_ESTIMATE);
-    fftw_plan pb_s = fftw_plan_dft_1d(num, sf, s, FFTW_BACKWARD, FFTW_ESTIMATE);
-    fftw_execute(pb_x);
-    fftw_execute(pb_y);
-    fftw_execute(pb_s);
-
-    for(int i=0; i<N[0]; i++){
-        for(int j=0; j<N[1]; j++){
-            U1[Idx(i,j)][0] = ux[Idx(i,j)][0]/num;
-            U1[Idx(i,j)][1] = uy[Idx(i,j)][0]/num;
-            S1[Idx(i,j)] = s[Idx(i,j)][0]/num;
-        }
-    }    
-    std::cout<<"U After Proj, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[2*Idx(N[0]/3+10,N[1]/2)]<<std::endl;
-    //std::cout<<"S after Diff: "<<min_val<<std::endl;
-    //Check_Symmetry(U1, S1, "diff");
-
-    fftw_destroy_plan(pf_x);
-    fftw_destroy_plan(pf_y);
-    fftw_destroy_plan(pf_s);
-    fftw_destroy_plan(pb_x);
-    fftw_destroy_plan(pb_y);
-    fftw_destroy_plan(pb_s);
-    delete []ux;
-    delete []uy;
-    delete []s;
-    delete []uxf;
-    delete []uyf;
-    delete []sf;
-    */
     
     std::cout<<"U After Diff, top:"<<U1[Idx(N[0]/3-10,N[1]/2+10)]<<",btm:"<<U1[2*Idx(N[0]/3+10,N[1]/2)]<<std::endl;
 }
@@ -236,41 +236,41 @@ void Fluid<T,n>::Diffuse(){
 template<class T, int n>
 void Fluid<T,n>::Project(){
     // U1, U0, dt
-    
-    T dx2 = D[0]*D[0], dy2 = D[1]*D[1], d2 = dx2*dy2;
-    
-    // divU
-    for(int i=0; i<N[0]; i++){
-        for(int j=0; j<N[1]; j++){
-            div[Idx(i,j)] = 0.5*((U1[Idx(i+1,j)][0]-U1[Idx(i-1,j)][0])/D[0] + (U1[Idx(i,j+1)][1]-U1[Idx(i,j-1)][1])/D[1]);
-            P[Idx(i,j)] = 0.0;
-        }
-    }
-
-    // calculate P
-    int i0 = N[0]/2, j0 = N[1]/2;
-    T prev = 0.0;
-    for(int iter=0; iter<20; iter++){
-        prev = P[Idx(i0,j0)];
+    if(!FFT_scheme){
+        T dx2 = D[0]*D[0], dy2 = D[1]*D[1], d2 = dx2*dy2;
+        
+        // divU
         for(int i=0; i<N[0]; i++){
-            for(int j=0; j<N[0]; j++){
-                T A = (P[Idx(i+1,j)]+P[Idx(i-1,j)])*dy2;
-                T B = (P[Idx(i,j+1)]+P[Idx(i,j-1)])*dx2;
-                P[Idx(i,j)] = (A+B-div[Idx(i,j)]*d2)/(2.0*(dx2+dy2));
+            for(int j=0; j<N[1]; j++){
+                div[Idx(i,j)] = 0.5*((U1[Idx(i+1,j)][0]-U1[Idx(i-1,j)][0])/D[0] + (U1[Idx(i,j+1)][1]-U1[Idx(i,j-1)][1])/D[1]);
+                P[Idx(i,j)] = 0.0;
             }
         }
-        if(iter==19 && P[Idx(i0,j0)]-prev>small_t) std::cout<<"Not converge: "<<P[Idx(i0,j0)]-prev<<std::endl;
-    }
 
-    // w4 = w3 - divP
-    for(int i=0; i<N[0]; i++){
-        for(int j=0; j<N[1]; j++){
-            vec gradP(0.5*(P[Idx(i+1,j)]-P[Idx(i-1,j)])/D[0], 0.5*(P[Idx(i,j+1)]-P[Idx(i,j-1)])/D[1]);
-            U1[Idx(i,j)] -= gradP;
+        // calculate P
+        int i0 = N[0]/2, j0 = N[1]/2;
+        T prev = 0.0;
+        for(int iter=0; iter<20; iter++){
+            prev = P[Idx(i0,j0)];
+            for(int i=0; i<N[0]; i++){
+                for(int j=0; j<N[0]; j++){
+                    T A = (P[Idx(i+1,j)]+P[Idx(i-1,j)])*dy2;
+                    T B = (P[Idx(i,j+1)]+P[Idx(i,j-1)])*dx2;
+                    P[Idx(i,j)] = (A+B-div[Idx(i,j)]*d2)/(2.0*(dx2+dy2));
+                }
+            }
+            if(iter==19 && P[Idx(i0,j0)]-prev>small_t) std::cout<<"Not converge: "<<P[Idx(i0,j0)]-prev<<std::endl;
         }
+
+        // w4 = w3 - divP
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                vec gradP(0.5*(P[Idx(i+1,j)]-P[Idx(i-1,j)])/D[0], 0.5*(P[Idx(i,j+1)]-P[Idx(i,j-1)])/D[1]);
+                U1[Idx(i,j)] -= gradP;
+            }
+        }
+        std::cout<<"U After P, top:"<<U1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<U1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
     }
-    std::cout<<"U After P, top:"<<U1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<U1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
-    
     // source: disspation term
     T cs = 1.0 + dt*aS;
     for(int i=0; i<N[0]; i++){

@@ -58,6 +58,7 @@ private:
 
     bool pbc = true; // periodic boundry
     bool obstacle = false; // obstacle area
+    bool FFT_scheme = false; // whether use FFT to solve diffusion and projection
     bool debug_flag = false;
 
     void Vstep(vec& F, T Source, vec& X);
