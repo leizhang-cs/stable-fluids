@@ -4,6 +4,7 @@
 #include "vec.h"
 #include <vector>
 
+enum Demo {horizontal, inclined, opposite, obstacle};
 
 template<class T, int n>
 class Fluid{
@@ -17,7 +18,7 @@ public:
         visc(visc_input), kS(kS_input), aS(aS_input), dt(dt_input), density(density_input),
         L(L_input), N(N_input),
         U0(N_input[0]*N_input[1]), U1(N_input[0]*N_input[1]),
-        S0(N_input[0]*N_input[1]), S1(N_input[0]*N_input[1]),
+        S0(N_input[0]*N_input[1], 128), S1(N_input[0]*N_input[1]),
         P(N_input[0]*N_input[1]), div(N_input[0]*N_input[1])
     {
         image_color = new pixel [N[0]*N[1]]();
@@ -38,7 +39,7 @@ public:
     }
 
     pixel* image_color;
-    void simulate(vec& F, T Source, vec& X);
+    void simulate(vec& F, T Source, vec& X, Demo d);
     // image as source
     void AddSource(const char* filename);
     void display();
@@ -60,6 +61,7 @@ private:
     bool obstacle = false; // obstacle area
     bool FFT_scheme = false; // whether use FFT to solve diffusion and projection
     bool debug_flag = false;
+    Demo demo;
 
     void Vstep(vec& F, T Source, vec& X);
     void AddForce(vec Force, T Source, vec X);

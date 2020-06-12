@@ -15,10 +15,14 @@ static const double small_t = 1e-4;
 
 
 template<class T, int n>
-void Fluid<T,n>::simulate(vec& F, T Source, vec& X){
+void Fluid<T,n>::simulate(vec& F, T Source, vec& X, Demo d){
+    demo = d;
+    if(demo==Demo::obstacle) obstacle = true;
     Vstep(F, Source, X);
     std::swap(U0, U1);
     std::swap(S0, S1);
+    display();
+    obstacle = false;
 }
 
 
@@ -47,32 +51,48 @@ void Fluid<T,n>::AddForce(vec F, T S, vec X){
     vec du_top = F*dt;
     for(int i=0; i<N[0]/3; i++){
         for(int j=0; j<N[1]; j++){
-            U1[Idx(i,j)] = du_top;
-            //U1[Idx(i,j)] = F*dt*S0[Idx(i,j)];
+            U1[Idx(i,j)] = du_top/S0[Idx(i,j)];
+        }
+    }
+
+    if(demo!=Demo::opposite){
+        for(int i=N[0]/3; i<2*N[0]/3; i++){
+            for(int j=0; j<N[1]; j++){
+                U1[Idx(i,j)] = du_top/S0[Idx(i,j)];
+            }
         }
     }
     
-    vec du_btm = -F*dt;
+    vec du_btm = demo==Demo::opposite? -du_top: du_top;
     for(int i=2*N[0]/3; i<N[0]; i++){
         for(int j=0; j<N[1]; j++){
-            U1[Idx(i,j)] = du_btm;
-            //U1[Idx(i,j)] = F*dt*S0[Idx(i,j)];
+            U1[Idx(i,j)] = du_btm/S0[Idx(i,j)];
         }
     }
     
     // add source
     T ds = S;
-    for(int i=3*N[0]/8; i<5*N[0]/8; i++){
-        for(int j=3*N[1]/8; j<5*N[1]/8; j++){
-            S1[Idx(i,j)] = ds;
+    if(demo==Demo::inclined){
+        for(int i=3*N[0]/4; i<N[0]; i++){
+            for(int j=0; j<N[1]/4; j++){
+                S1[Idx(i,j)] = ds;
+            }
         }
     }
+    else{
+        for(int i=3*N[0]/8; i<5*N[0]/8; i++){
+            for(int j=0; j<N[1]/4; j++){
+                S1[Idx(i,j)] = ds;
+            }
+        }
+    }
+    
     // obstacle
     if(obstacle){
         for(int i=0; i<N[0]; i++)
             for(int j=0; j<N[1]; j++)
-                if((i-64)*(i-64)+(j-64)*(j-64)<81){
-                    U0[Idx(i,j)] = vec(0,0);         
+                if((i-N[0]/2)*(i-N[0]/2)+(j-N[1]/2)*(j-N[1]/2)<std::min(N[0],N[1])){
+                    U0[Idx(i,j)] = vec(0,0);   
                 }
     }
     //Check_Symmetry(U1, S1, "addF");
@@ -113,16 +133,17 @@ void Fluid<T,n>::Diffuse(){
     if(!FFT_scheme){
         // FTCS scheme
         // T k = visc*dt;
+        // std::vector<vec> Ut(U1);
         // for(int i=0; i<N[0]; i++){
         //     for(int j=0; j<N[1]; j++){
         //         // TODO: optimization
-        //         T ux = (U0[Idx(i+1,j)][0] - 2.0*U0[Idx(i,j)][0] + U0[Idx(i-1,j)][0])/(D[0]*D[0]);
-        //         T uy = (U0[Idx(i,j+1)][1] - 2.0*U0[Idx(i,j)][1] + U0[Idx(i,j-1)][1])/(D[1]*D[1]);
+        //         T ux = (Ut[Idx(i+1,j)][0] - 2.0*Ut[Idx(i,j)][0] + Ut[Idx(i-1,j)][0])/(D[0]*D[0]);
+        //         T uy = (Ut[Idx(i,j+1)][1] - 2.0*Ut[Idx(i,j)][1] + Ut[Idx(i,j-1)][1])/(D[1]*D[1]);
         //         U1[Idx(i,j)] += (1+k)*vec(ux,uy);
         //     }
         // }
 
-        // /BTCS scheme
+        // BTCS scheme
         T k = visc*dt;
         std::vector<vec> Ut(U1);
         for(int iter=0; iter<20; iter++){
@@ -278,6 +299,7 @@ void Fluid<T,n>::Project(){
             S1[Idx(i,j)] = S1[Idx(i,j)]/cs;
         }
     }
+    std::cout<<"S After P, top:"<<S1[Idx(N[0]/4,N[1]/2)]<<",btm:"<<S1[Idx(3*N[0]/4,N[1]/2)]<<std::endl;
 }
 
 // RK2
@@ -361,7 +383,7 @@ void Fluid<T,n>::display()
     if(obstacle){
         for(int i=0; i<N[0]; i++)
             for(int j=0; j<N[1]; j++)
-                if((i-64)*(i-64)+(j-64)*(j-64)<81)
+                if((i-N[0]/2)*(i-N[0]/2)+(j-N[1]/2)*(j-N[1]/2)<std::min(N[0],N[1]))
                     image_color[Idx(i,j)] = make_pixel(200, 133, 20);
     }
     dump_png(image_color,N[1],N[0],"output.png");
