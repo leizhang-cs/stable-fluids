@@ -255,6 +255,12 @@ void Fluid<T,n>::Diffuse(){
 }
 
 template<class T, int n>
+Vec<T,n> abs(Vec<T,n> v) {
+    for(int i=0; i<n; i++) v[i] = std::abs(v[i]);
+    return v;
+}
+
+template<class T, int n>
 void Fluid<T,n>::Project(){
     // U1, U0, dt
     if(!FFT_scheme){
@@ -265,6 +271,27 @@ void Fluid<T,n>::Project(){
             for(int j=0; j<N[1]; j++){
                 div[Idx(i,j)] = 0.5*((U1[Idx(i+1,j)][0]-U1[Idx(i-1,j)][0])/D[0] + (U1[Idx(i,j+1)][1]-U1[Idx(i,j-1)][1])/D[1]);
                 P[Idx(i,j)] = 0.0;
+            }
+        }
+        
+        // vorticity
+        std::vector<T> uCurls(N[0]*N[1]); 
+        for(int i=0; i<N[0]; i++){
+            for(int j=0; j<N[1]; j++){
+                uCurls[Idx(i,j)] = 0.5*((U1[Idx(i+1,j)][1]-U1[Idx(i-1,j)][1])/D[0] + (-U1[Idx(i,j+1)][0]+U1[Idx(i,j-1)][0])/D[1]);
+            }
+        }
+        for(int i=0; i<N[0]; i++) {
+            vec mx = {1e3, 1e3}, mn = {-1e3, -1e3};
+            for(int j=0; j<N[1]; j++) {
+                T cl = uCurls[Idx(i-1, j)];
+                T cr = uCurls[Idx(i+1, j)];
+                T cb = uCurls[Idx(i, j-1)];
+                T ct = uCurls[Idx(i, j+1)];
+                T cc = uCurls[Idx(i, j)];
+                vec force = vec(abs(ct) - abs(cb), abs(cl) - abs(cr));
+                force = 1e-2 * cc * 7.0 * force.normalized(); // 7.0 factor
+                U1[Idx(i,j)] = componentwise_min(componentwise_max(U1[Idx(i,j)] + force * dt, mn), mx);
             }
         }
 
